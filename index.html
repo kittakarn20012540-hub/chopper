@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>ระบบคำนวนค่าบริการแอร์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -815,10 +818,19 @@
   document.getElementById('printBtn').addEventListener('click', () => window.print());
   document.getElementById('refreshRatesBtn').addEventListener('click', refreshRates);
 
+  // Refresh prices when the tab regains focus (user comes back to the page)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshRates();
+  });
+  window.addEventListener('focus', () => refreshRates());
+
   // init
   const today = new Date();
   document.getElementById('bookDate').value = today.toISOString().split('T')[0];
   refreshRates();
+
+  // Auto-poll the sheet every 30 seconds so price edits propagate without manual refresh
+  setInterval(() => { if (!document.hidden) refreshRates(); }, 30000);
 </script>
 </body>
 </html>
