@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>ระบบคำนวนค่าบริการแอร์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          canvas: 'rgb(249, 249, 247)',
+          ink: '#1A1A1A',
+          muted: '#888780',
+          accent: '#F1EFE8',
+          subtle: 'rgba(0, 0, 0, 0.12)',
+        },
+        fontFamily: {
+          sans: ['Inter', 'IBM Plex Sans Thai', 'system-ui', '-apple-system', 'sans-serif'],
+        },
+        boxShadow: {
+          card: '0 1px 3px rgba(0,0,0,0.1)',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: 'Inter', 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif; }
+  .input-base {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    width: 100%;
+    font-size: 14px;
+    color: #1A1A1A;
+    outline: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .input-base::placeholder { color: #888780; }
+  .input-base:focus {
+    border-color: #1A1A1A;
+    box-shadow: 0 0 0 2px #1A1A1A;
+  }
+  select.input-base {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%231A1A1A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .btn-primary {
+    background: #1A1A1A;
+    color: #FFFFFF;
+    border-radius: 8px;
+    padding: 10px 32px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:focus { outline: none; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #1A1A1A; }
+  .btn-secondary {
+    background: #FFFFFF;
+    color: #1A1A1A;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #F1EFE8; }
+  .card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-dashed {
+    background: transparent;
+    border: 1px dashed rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+  }
+  .label-text { font-size: 14px; font-weight: 500; color: #1A1A1A; }
+  .h1 { font-size: 23px; font-weight: 600; color: #1A1A1A; }
+  .h2 { font-size: 18px; font-weight: 600; color: #1A1A1A; }
+
+  /* ===== Quotation print ===== */
+  @media print {
+    @page { size: A4; margin: 14mm; }
+    body { background: #FFFFFF !important; }
+    body * { visibility: hidden !important; }
+    #quotation, #quotation * { visibility: visible !important; }
+    #quotation {
+      position: absolute !important;
+      inset: 0 !important;
+      background: #FFFFFF !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      max-width: none !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    .no-print { display: none !important; }
+    .receipt-modal-bg { background: #FFFFFF !important; padding: 0 !important; }
+  }
+
+  .quotation-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .quotation-table th, .quotation-table td {
+    border-bottom: 1px solid rgba(0,0,0,0.12);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .quotation-table th {
+    background: #F1EFE8;
+    font-weight: 600;
+    font-size: 12px;
+    color: #1A1A1A;
+  }
+  .quotation-table td.num, .quotation-table th.num { text-align: right; white-space: nowrap; }
+</style>
+</head>
+<body class="antialiased min-h-screen flex flex-col bg-canvas text-ink">
+
+<!-- Header -->
+<header class="border-b border-subtle bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-5 flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-ink flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="5" width="20" height="9" rx="2"/>
+        <path d="M6 9h.01M10 9h.01M14 9h.01"/>
+        <path d="M6 14v3M12 14v5M18 14v3"/>
+      </svg>
+    </div>
+    <div class="flex-1">
+      <div class="h2 leading-tight">ระบบบริการแอร์</div>
+      <div class="text-xs text-muted">ล้าง · ซ่อม · ติดตั้ง</div>
+    </div>
+    <div class="text-[10px] text-muted font-mono px-2 py-1 rounded border border-subtle">
+      build v5 · sheet-live
+    </div>
+  </div>
+</header>
+
+<main class="flex-1">
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <h1 class="h1 mb-1">สร้างใบจองบริการใหม่</h1>
+    <p class="text-sm text-muted mb-8">กรอกข้อมูลให้ครบเพื่อคำนวนค่าบริการและออกหมายเลขจอง</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Form -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- Service Items -->
+        <section class="card p-6">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="10" rx="2"/>
+                <path d="M7 8h.01M11 8h.01M15 8h.01"/>
+                <path d="M7 14v4M12 14v6M17 14v4"/>
+              </svg>
+              <h2 class="h2">รายการบริการ</h2>
+            </div>
+            <button type="button" id="addItemBtn" class="btn-secondary inline-flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              เพิ่มรายการ
+            </button>
+          </div>
+
+          <!-- Sheet status -->
+          <div id="rateStatus" class="mb-4 px-3 py-2 rounded-lg border border-subtle bg-canvas text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span id="rateStatusDot" class="w-1.5 h-1.5 rounded-full bg-muted shrink-0"></span>
+                <span id="rateStatusText" class="text-muted truncate">กำลังโหลดราคาจาก Google Sheet…</span>
+              </div>
+              <button type="button" id="refreshRatesBtn" class="text-ink hover:bg-accent rounded-md px-2 py-1 inline-flex items-center gap-1 shrink-0" title="โหลดราคาใหม่">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                รีเฟรช
+              </button>
+            </div>
+            <div id="rateStatusHelp" class="hidden mt-2 pt-2 border-t border-subtle text-[11px] text-muted">
+              <a id="sheetCheckLink" href="#" target="_blank" rel="noopener" class="underline hover:text-ink">เปิด CSV URL เพื่อทดสอบ</a>
+            </div>
+          </div>
+
+          <div id="itemsList" class="space-y-3"></div>
+        </section>
+
+        <!-- Distance -->
+        <section class="card p-6">
+          <div class="flex items-center gap-2 mb-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s-7-7.58-7-12a7 7 0 0 1 14 0c0 4.42-7 12-7 12z"/>
+              <circle cx="12" cy="10" r="2.5"/>
+            </svg>
+            <h2 class="h2">ระยะทาง</h2>
+          </div>
+          <label class="label-text block mb-2">ระยะทางจากร้านถึงลูกค้า</label>
+          <select id="distance" class="input-base">
+            <option value="0">ในพื้นที่ (0 - 5 กม.) — ฟรี</option>
+            <option value="10">6 - 10 กม. — 100 บาท</option>
+            <option value="20">11 - 20 กม. — 250 บาท</option>
+            <option value="30">21 - 30 กม. — 400 บาท</option>
+            <option value="50">31 - 50 กม. — 700 บาท</option>
+            <option value="100">มากกว่า 50 กม. — 1,200 บาท</option>
+          </select>
+        </section>
+
+        <!-- Customer info -->
+        <section class="card p-6">
+          <div class="flex items-center gap-2 mb-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <h2 class="h2">ข้อมูลลูกค้า</h2>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label-text block mb-1.5">ชื่อ - นามสกุล</label>
+              <input id="custName" type="text" class="input-base" placeholder="เช่น สมชาย ใจดี" />
+            </div>
+            <div>
+              <label class="label-text block mb-1.5">เบอร์โทรศัพท์</label>
+              <input id="custPhone" type="tel" class="input-base" placeholder="08x-xxx-xxxx" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="label-text block mb-1.5">ที่อยู่</label>
+              <textarea id="custAddress" rows="2" class="input-base" placeholder="บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- Schedule -->
+        <section class="card p-6">
+          <div class="flex items-center gap-2 mb-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+            <h2 class="h2">วันและเวลาให้บริการ</h2>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="label-text block mb-1.5">วันที่</label>
+              <input id="bookDate" type="date" class="input-base" />
+            </div>
+            <div>
+              <label class="label-text block mb-1.5">เวลา</label>
+              <input id="bookTime" type="time" class="input-base" />
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Summary Sidebar -->
+      <aside class="lg:col-span-1">
+        <div class="lg:sticky lg:top-6 space-y-4">
+          <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 12h6M9 16h6M9 8h6"/>
+                <rect x="4" y="3" width="16" height="18" rx="2"/>
+              </svg>
+              <h2 class="h2">สรุปคำสั่งซื้อ</h2>
+            </div>
+
+            <div id="summaryItems" class="space-y-2 mb-4 text-sm"></div>
+
+            <div class="border-t border-subtle pt-3 space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-muted">ค่าบริการ</span>
+                <span id="sumService">฿0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">ค่าเดินทาง</span>
+                <span id="sumTravel">฿0</span>
+              </div>
+              <div class="flex justify-between pt-2 border-t border-subtle">
+                <span class="font-semibold">รวมทั้งสิ้น</span>
+                <span id="sumTotal" class="font-semibold text-base">฿0</span>
+              </div>
+            </div>
+
+            <button id="submitBtn" type="button" class="btn-primary w-full mt-5">ยืนยันการจอง</button>
+          </div>
+
+          <div class="card-dashed p-4 text-xs text-muted text-center">
+            ระบบจะออกหมายเลขจองอัตโนมัติเมื่อกดยืนยัน
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<!-- Quotation Modal -->
+<div id="receiptModal" class="receipt-modal-bg hidden fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 overflow-y-auto">
+  <div class="card w-full max-w-3xl my-6">
+    <!-- Modal header (not printed) -->
+    <div class="no-print flex items-center justify-between p-4 border-b border-subtle">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-full bg-accent flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <span class="text-sm font-medium">จองสำเร็จ — ใบเสนอราคา</span>
+      </div>
+      <button id="closeModal" class="text-muted hover:text-ink">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Printable quotation -->
+    <div id="quotation" class="p-8">
+      <!-- Letterhead -->
+      <div class="flex justify-between items-start pb-5 border-b-2 border-ink">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg bg-ink flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="9" rx="2"/>
+              <path d="M6 9h.01M10 9h.01M14 9h.01"/>
+              <path d="M6 14v3M12 14v5M18 14v3"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-lg font-semibold leading-tight">ระบบบริการแอร์</div>
+            <div class="text-xs text-muted leading-relaxed mt-0.5">
+              บริการล้าง · ซ่อม · ติดตั้งเครื่องปรับอากาศ<br/>
+              123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110<br/>
+              โทร 02-123-4567 · เลขประจำตัวผู้เสียภาษี 0-0000-00000-00-0
+            </div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-semibold tracking-wide">ใบเสนอราคา</div>
+          <div class="text-xs text-muted">QUOTATION</div>
+        </div>
+      </div>
+
+      <!-- Meta -->
+      <div class="grid grid-cols-2 gap-6 mt-5 text-sm">
+        <div>
+          <div class="text-xs text-muted mb-1">ลูกค้า / CUSTOMER</div>
+          <div id="rcName" class="font-medium">—</div>
+          <div id="rcAddress" class="text-sm leading-relaxed mt-0.5">—</div>
+          <div id="rcPhone" class="text-sm text-muted mt-0.5">—</div>
+        </div>
+        <div class="text-right">
+          <div class="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+            <div class="text-muted">เลขที่ / No.</div><div id="bookingNo" class="font-semibold">—</div>
+            <div class="text-muted">วันที่ออก / Date</div><div id="rcIssueDate">—</div>
+            <div class="text-muted">นัดให้บริการ</div><div id="rcSchedule">—</div>
+            <div class="text-muted">ระยะทาง</div><div id="rcDistance">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items table -->
+      <table class="quotation-table mt-6">
+        <thead>
+          <tr>
+            <th class="num" style="width:36px;">#</th>
+            <th>รายการบริการ</th>
+            <th>ขนาด</th>
+            <th class="num" style="width:60px;">จำนวน</th>
+            <th class="num" style="width:110px;">ราคา/หน่วย</th>
+            <th class="num" style="width:120px;">รวม (บาท)</th>
+          </tr>
+        </thead>
+        <tbody id="rcItems"></tbody>
+      </table>
+
+      <!-- Totals -->
+      <div class="flex justify-end mt-4">
+        <div class="w-full max-w-xs text-sm">
+          <div class="flex justify-between py-1.5">
+            <span class="text-muted">รวมค่าบริการ</span>
+            <span id="rcService">฿0</span>
+          </div>
+          <div class="flex justify-between py-1.5">
+            <span class="text-muted">ค่าเดินทาง</span>
+            <span id="rcTravel">฿0</span>
+          </div>
+          <div class="flex justify-between py-1.5 border-t border-subtle">
+            <span class="text-muted">ยอดก่อนภาษี</span>
+            <span id="rcSubtotal">฿0</span>
+          </div>
+          <div class="flex justify-between py-1.5">
+            <span class="text-muted">ภาษีมูลค่าเพิ่ม 7%</span>
+            <span id="rcVat">฿0</span>
+          </div>
+          <div class="flex justify-between py-2 border-t-2 border-ink font-semibold text-base">
+            <span>รวมทั้งสิ้น</span>
+            <span id="rcTotal">฿0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terms -->
+      <div class="mt-6 pt-4 border-t border-subtle text-xs text-muted leading-relaxed">
+        <div class="font-medium text-ink mb-1">หมายเหตุ / Terms</div>
+        <ol class="list-decimal pl-5 space-y-0.5">
+          <li>ใบเสนอราคานี้มีผลใช้บังคับ 7 วันนับจากวันที่ออก</li>
+          <li>ราคารวมภาษีมูลค่าเพิ่ม 7% แล้ว</li>
+          <li>กรุณาแจ้งล่วงหน้าอย่างน้อย 24 ชั่วโมงหากต้องการเลื่อนนัด</li>
+          <li>กรณีเกิดความเสียหายจากการใช้งานปกติ ทางร้านยินดีรับประกันงาน 7 วัน</li>
+        </ol>
+      </div>
+
+      <!-- Signatures -->
+      <div class="grid grid-cols-2 gap-12 mt-10 text-sm">
+        <div class="text-center">
+          <div class="border-t border-ink pt-2 mx-6">ผู้สั่งซื้อ / Customer</div>
+          <div class="text-xs text-muted mt-1">วันที่ ........./........./.........</div>
+        </div>
+        <div class="text-center">
+          <div class="border-t border-ink pt-2 mx-6">ผู้เสนอราคา / Authorized</div>
+          <div class="text-xs text-muted mt-1">วันที่ ........./........./.........</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action buttons (not printed) -->
+    <div class="no-print grid grid-cols-2 gap-3 p-4 border-t border-subtle">
+      <button id="printBtn" class="btn-secondary inline-flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        พิมพ์ใบเสนอราคา
+      </button>
+      <button id="newOrderBtn" class="btn-primary">สร้างใบใหม่</button>
+    </div>
+  </div>
+</div>
+
+<footer class="border-t border-subtle bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-4 text-xs text-muted text-center">
+    © ระบบบริการแอร์ — สำหรับพนักงานรับบริการลูกค้า
+  </div>
+</footer>
+
+<script>
+  // ===== Rate table (loaded from Google Sheet) =====
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7XMolQsqy_bUGSiGjzrs_e_8LFp4XqvfItYwJu6ADY9IMmExLTfXJOPp2ZW8h1TMR7rJ8GupNFIGG/pub?output=csv';
+
+  const SERVICE_LABEL_MAP = {
+    wash: 'ล้างแอร์', clean: 'ล้างแอร์', cleaning: 'ล้างแอร์', 'ล้าง': 'ล้างแอร์', 'ล้างแอร์': 'ล้างแอร์',
+    repair: 'ซ่อมแอร์', fix: 'ซ่อมแอร์', 'ซ่อม': 'ซ่อมแอร์', 'ซ่อมแอร์': 'ซ่อมแอร์',
+    install: 'ติดตั้งแอร์', installation: 'ติดตั้งแอร์', 'ติดตั้ง': 'ติดตั้งแอร์', 'ติดตั้งแอร์': 'ติดตั้งแอร์',
+  };
+
+  // Fallback (used only when sheet fetch fails)
+  const FALLBACK_SERVICES = {
+    wash:    { label: 'ล้างแอร์',    rates: { '9000': 600,  '12000': 700,  '18000': 900,  '24000': 1100, '36000': 1400 } },
+    repair:  { label: 'ซ่อมแอร์',    rates: { '9000': 800,  '12000': 1000, '18000': 1300, '24000': 1600, '36000': 2200 } },
+    install: { label: 'ติดตั้งแอร์', rates: { '9000': 2500, '12000': 3000, '18000': 3800, '24000': 4800, '36000': 6500 } },
+  };
+  const FALLBACK_SIZES = [
+    { v: '9000', label: '9,000 BTU' }, { v: '12000', label: '12,000 BTU' },
+    { v: '18000', label: '18,000 BTU' }, { v: '24000', label: '24,000 BTU' },
+    { v: '36000', label: '36,000 BTU' },
+  ];
+
+  // Populated from sheet on load
+  let SERVICES = {};
+  let SIZES = [];
+
+  const TRAVEL = { '0': 0, '10': 100, '20': 250, '30': 400, '50': 700, '100': 1200 };
+
+  // Parse CSV with quoted-string support
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') { quoted = false; }
+        else { cell += c; }
+      } else {
+        if (c === '"') quoted = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (c === '\r') { /* skip */ }
+        else cell += c;
+      }
+    }
+    if (cell.length || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => String(c).trim().length));
+  }
+
+  function buildRatesFromRows(rows) {
+    if (!rows || rows.length < 2) throw new Error('ชีตว่างหรือไม่มีข้อมูล');
+    const header = rows[0].map(s => String(s).trim());
+    const sizes = [];
+    for (let i = 1; i < header.length; i++) {
+      const raw = header[i];
+      const n = parseInt(String(raw).replace(/[^\d]/g, ''));
+      if (!isNaN(n) && n > 0) {
+        sizes.push({ v: String(n), label: n.toLocaleString('th-TH') + ' BTU' });
+      }
+    }
+    if (sizes.length === 0) throw new Error('ไม่พบคอลัมน์ขนาด BTU ในแถวหัว');
+
+    const services = {};
+    for (let r = 1; r < rows.length; r++) {
+      const cells = rows[r];
+      const rawKey = String(cells[0] || '').trim();
+      if (!rawKey) continue;
+      const key = rawKey.toLowerCase();
+      const label = SERVICE_LABEL_MAP[key] || SERVICE_LABEL_MAP[rawKey] || rawKey;
+      const rates = {};
+      sizes.forEach((s, idx) => {
+        const raw = String(cells[idx + 1] || '').replace(/[^\d.]/g, '');
+        const p = parseFloat(raw);
+        if (!isNaN(p)) rates[s.v] = p;
+      });
+      if (Object.keys(rates).length) services[key] = { label, rates };
+    }
+    if (Object.keys(services).length === 0) throw new Error('ไม่พบรายการบริการในชีต');
+    return { services, sizes };
+  }
+
+  async function loadRatesFromSheet() {
+    const url = SHEET_CSV_URL + '&cb=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — ตรวจว่า publish ชีตแล้วหรือไม่');
+    const text = await res.text();
+    const trimmed = text.trim().slice(0, 200).toLowerCase();
+    if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) {
+      throw new Error('ชีตยัง publish เป็น HTML — ต้องตั้งเป็น CSV (File → Share → Publish to web → format: CSV)');
+    }
+    if (!text.trim()) throw new Error('ชีตว่างเปล่า ไม่มีข้อมูล');
+    return buildRatesFromRows(parseCSV(text));
+  }
+
+  function setRateStatus(state, message) {
+    const dot = document.getElementById('rateStatusDot');
+    const txt = document.getElementById('rateStatusText');
+    const help = document.getElementById('rateStatusHelp');
+    const link = document.getElementById('sheetCheckLink');
+    const wrap = document.getElementById('rateStatus');
+    const colors = {
+      loading: 'bg-muted', ok: 'bg-emerald-500', error: 'bg-amber-500',
+    };
+    dot.className = 'w-1.5 h-1.5 rounded-full shrink-0 ' + (colors[state] || 'bg-muted');
+    txt.textContent = message;
+    txt.className = 'truncate ' + (state === 'error' ? 'text-amber-700' : 'text-muted');
+    if (state === 'error') {
+      wrap.className = 'mb-4 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-xs';
+      help.classList.remove('hidden');
+      link.href = SHEET_CSV_URL;
+    } else {
+      wrap.className = 'mb-4 px-3 py-2 rounded-lg border border-subtle bg-canvas text-xs';
+      help.classList.add('hidden');
+    }
+  }
+
+  async function refreshRates() {
+    setRateStatus('loading', 'กำลังโหลดราคาจาก Google Sheet…');
+    document.getElementById('refreshRatesBtn').disabled = true;
+    try {
+      const { services, sizes } = await loadRatesFromSheet();
+      SERVICES = services;
+      SIZES = sizes;
+      // Repair existing items: fix invalid service/size after rate change
+      const firstSvc = Object.keys(SERVICES)[0];
+      const firstSize = SIZES[0]?.v;
+      items.forEach(it => {
+        if (!SERVICES[it.service]) it.service = firstSvc;
+        if (!SIZES.find(s => s.v === it.size)) it.size = firstSize;
+      });
+      if (items.length === 0) createItem();
+      renderItems();
+      updateSummary();
+      const now = new Date().toLocaleTimeString('th-TH');
+      setRateStatus('ok', 'ราคาจาก Google Sheet · อัปเดต ' + now);
+    } catch (e) {
+      console.error(e);
+      // Fall back to defaults so the app stays usable
+      if (Object.keys(SERVICES).length === 0) {
+        SERVICES = FALLBACK_SERVICES;
+        SIZES = FALLBACK_SIZES;
+        items.forEach(it => {
+          if (!SERVICES[it.service]) it.service = Object.keys(SERVICES)[0];
+          if (!SIZES.find(s => s.v === it.size)) it.size = SIZES[0].v;
+        });
+        if (items.length === 0) createItem();
+        renderItems();
+        updateSummary();
+      }
+      setRateStatus('error', 'โหลดราคาจากชีตไม่สำเร็จ (' + e.message + ') — ใช้ราคาสำรอง · กดรีเฟรชเพื่อลองใหม่');
+    } finally {
+      document.getElementById('refreshRatesBtn').disabled = false;
+    }
+  }
+
+  const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH');
+
+  // ===== Items state =====
+  let items = [];
+  let nextId = 1;
+
+  function createItem() {
+    const svc = Object.keys(SERVICES)[0];
+    const size = SIZES[0]?.v;
+    if (!svc || !size) {
+      // Sheet not loaded yet — placeholder item, will be repaired after load
+      items.push({ id: nextId++, service: '', size: '', qty: 1 });
+    } else {
+      items.push({ id: nextId++, service: svc, size, qty: 1 });
+    }
+    renderItems();
+    updateSummary();
+  }
+
+  function removeItem(id) {
+    items = items.filter(i => i.id !== id);
+    if (items.length === 0) createItem();
+    else { renderItems(); updateSummary(); }
+  }
+
+  function updateItem(id, field, value) {
+    const it = items.find(i => i.id === id);
+    if (!it) return;
+    it[field] = field === 'qty' ? Math.max(1, parseInt(value) || 1) : value;
+    updateSummary();
+  }
+
+  function itemPrice(it) {
+    return (SERVICES[it.service]?.rates[it.size] || 0) * it.qty;
+  }
+
+  function renderItems() {
+    const list = document.getElementById('itemsList');
+    list.innerHTML = '';
+    items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'border border-subtle rounded-lg p-4';
+      row.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-muted">รายการที่ ${idx + 1}</span>
+          <button type="button" data-action="del" data-id="${it.id}" class="text-muted hover:text-ink" title="ลบรายการ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="label-text block mb-1.5">ประเภทบริการ</label>
+            <select data-field="service" data-id="${it.id}" class="input-base">
+              ${Object.entries(SERVICES).map(([k, v]) => `<option value="${k}" ${it.service===k?'selected':''}>${v.label}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="label-text block mb-1.5">ขนาดแอร์</label>
+            <select data-field="size" data-id="${it.id}" class="input-base">
+              ${SIZES.map(s => `<option value="${s.v}" ${it.size===s.v?'selected':''}>${s.label}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="label-text block mb-1.5">จำนวน</label>
+            <input type="number" min="1" value="${it.qty}" data-field="qty" data-id="${it.id}" class="input-base" />
+          </div>
+        </div>
+        <div class="flex justify-end mt-3 text-sm">
+          <span class="text-muted mr-2">รวม</span>
+          <span class="font-medium">${fmt(itemPrice(it))}</span>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+
+    list.querySelectorAll('[data-field]').forEach(el => {
+      el.addEventListener('change', e => {
+        updateItem(parseInt(e.target.dataset.id), e.target.dataset.field, e.target.value);
+        renderItems();
+      });
+      if (el.tagName === 'INPUT') {
+        el.addEventListener('input', e => updateItem(parseInt(e.target.dataset.id), 'qty', e.target.value));
+      }
+    });
+    list.querySelectorAll('[data-action="del"]').forEach(el => {
+      el.addEventListener('click', e => removeItem(parseInt(el.dataset.id)));
+    });
+  }
+
+  function calc() {
+    const service = items.reduce((s, it) => s + itemPrice(it), 0);
+    const distKey = document.getElementById('distance').value;
+    const travel = TRAVEL[distKey] || 0;
+    return { service, travel, total: service + travel };
+  }
+
+  function updateSummary() {
+    const summaryItems = document.getElementById('summaryItems');
+    summaryItems.innerHTML = '';
+    if (items.length === 0 || items.every(it => itemPrice(it) === 0)) {
+      summaryItems.innerHTML = `<div class="card-dashed p-4 text-xs text-muted text-center">ยังไม่มีรายการบริการ</div>`;
+    } else {
+      items.forEach(it => {
+        const p = itemPrice(it);
+        if (p === 0) return;
+        const row = document.createElement('div');
+        row.className = 'flex justify-between';
+        row.innerHTML = `
+          <div>
+            <div>${SERVICES[it.service].label}</div>
+            <div class="text-xs text-muted">${SIZES.find(s=>s.v===it.size).label} × ${it.qty}</div>
+          </div>
+          <span>${fmt(p)}</span>
+        `;
+        summaryItems.appendChild(row);
+      });
+    }
+    const { service, travel, total } = calc();
+    document.getElementById('sumService').textContent = fmt(service);
+    document.getElementById('sumTravel').textContent = fmt(travel);
+    document.getElementById('sumTotal').textContent = fmt(total);
+  }
+
+  // ===== Booking submit =====
+  function genBookingNo() {
+    const d = new Date();
+    const y = d.getFullYear().toString().slice(-2);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const r = Math.floor(1000 + Math.random() * 9000);
+    return `AC-${y}${m}${day}-${r}`;
+  }
+
+  function validate() {
+    const name = document.getElementById('custName').value.trim();
+    const phone = document.getElementById('custPhone').value.trim();
+    const addr = document.getElementById('custAddress').value.trim();
+    const date = document.getElementById('bookDate').value;
+    const time = document.getElementById('bookTime').value;
+    if (!name || !phone || !addr) { alert('กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน'); return false; }
+    if (!date || !time) { alert('กรุณาเลือกวันและเวลานัดหมาย'); return false; }
+    if (items.length === 0) { alert('กรุณาเพิ่มรายการบริการ'); return false; }
+    return true;
+  }
+
+  function submit() {
+    if (!validate()) return;
+    const { service, travel, total } = calc();
+    const subtotal = total;
+    const vat = Math.round(subtotal * 0.07);
+    const grandTotal = subtotal + vat;
+
+    const name = document.getElementById('custName').value.trim();
+    const phone = document.getElementById('custPhone').value.trim();
+    const addr = document.getElementById('custAddress').value.trim();
+    const date = document.getElementById('bookDate').value;
+    const time = document.getElementById('bookTime').value;
+    const distLabel = document.getElementById('distance').selectedOptions[0].textContent;
+
+    document.getElementById('bookingNo').textContent = genBookingNo();
+    document.getElementById('rcName').textContent = name;
+    document.getElementById('rcPhone').textContent = 'โทร ' + phone;
+    document.getElementById('rcAddress').textContent = addr;
+    document.getElementById('rcDistance').textContent = distLabel;
+
+    const today = new Date();
+    document.getElementById('rcIssueDate').textContent = today.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const dt = new Date(date + 'T' + time);
+    document.getElementById('rcSchedule').textContent = dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) + ' · ' + time + ' น.';
+
+    const tbody = document.getElementById('rcItems');
+    tbody.innerHTML = '';
+    let n = 0;
+    items.forEach(it => {
+      const unit = SERVICES[it.service]?.rates[it.size] || 0;
+      const line = unit * it.qty;
+      if (line === 0) return;
+      n++;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="num">${n}</td>
+        <td>${SERVICES[it.service].label}</td>
+        <td>${SIZES.find(s=>s.v===it.size).label}</td>
+        <td class="num">${it.qty}</td>
+        <td class="num">${fmt(unit)}</td>
+        <td class="num">${fmt(line)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    if (travel > 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="num">${n + 1}</td>
+        <td>ค่าเดินทาง</td>
+        <td>${distLabel.replace(/ —.*$/, '')}</td>
+        <td class="num">1</td>
+        <td class="num">${fmt(travel)}</td>
+        <td class="num">${fmt(travel)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('rcService').textContent = fmt(service);
+    document.getElementById('rcTravel').textContent = fmt(travel);
+    document.getElementById('rcSubtotal').textContent = fmt(subtotal);
+    document.getElementById('rcVat').textContent = fmt(vat);
+    document.getElementById('rcTotal').textContent = fmt(grandTotal);
+
+    document.getElementById('receiptModal').classList.remove('hidden');
+  }
+
+  function resetForm() {
+    items = [];
+    nextId = 1;
+    createItem();
+    document.getElementById('distance').value = '0';
+    document.getElementById('custName').value = '';
+    document.getElementById('custPhone').value = '';
+    document.getElementById('custAddress').value = '';
+    document.getElementById('bookDate').value = '';
+    document.getElementById('bookTime').value = '';
+  }
+
+  // ===== Bindings =====
+  document.getElementById('addItemBtn').addEventListener('click', createItem);
+  document.getElementById('distance').addEventListener('change', updateSummary);
+  document.getElementById('submitBtn').addEventListener('click', submit);
+  document.getElementById('closeModal').addEventListener('click', () => document.getElementById('receiptModal').classList.add('hidden'));
+  document.getElementById('newOrderBtn').addEventListener('click', () => {
+    document.getElementById('receiptModal').classList.add('hidden');
+    resetForm();
+  });
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+  document.getElementById('refreshRatesBtn').addEventListener('click', refreshRates);
+
+  // Refresh prices when the tab regains focus (user comes back to the page)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshRates();
+  });
+  window.addEventListener('focus', () => refreshRates());
+
+  // init
+  const today = new Date();
+  document.getElementById('bookDate').value = today.toISOString().split('T')[0];
+  refreshRates();
+
+  // Auto-poll the sheet every 30 seconds so price edits propagate without manual refresh
+  setInterval(() => { if (!document.hidden) refreshRates(); }, 30000);
+</script>
+</body>
+</html>
