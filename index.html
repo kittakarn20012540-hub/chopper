@@ -147,7 +147,7 @@
       <div class="text-xs text-muted">ล้าง · ซ่อม · ติดตั้ง</div>
     </div>
     <div class="text-[10px] text-muted font-mono px-2 py-1 rounded border border-subtle">
-      build v5 · sheet-live
+      build v6 · sheet-live 10s
     </div>
   </div>
 </header>
@@ -452,7 +452,7 @@
 
 <script>
   // ===== Rate table (loaded from Google Sheet) =====
-  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7XMolQsqy_bUGSiGjzrs_e_8LFp4XqvfItYwJu6ADY9IMmExLTfXJOPp2ZW8h1TMR7rJ8GupNFIGG/pub?output=csv';
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSNZxqfY8i1BmZHanF4cwjLdm5T__-y2rha9FDbPd6sPIJgQhhkZqgRxviPDBkTVzqPGVFSKqpzoppH/pub?output=csv';
 
   const SERVICE_LABEL_MAP = {
     wash: 'ล้างแอร์', clean: 'ล้างแอร์', cleaning: 'ล้างแอร์', 'ล้าง': 'ล้างแอร์', 'ล้างแอร์': 'ล้างแอร์',
@@ -853,8 +853,8 @@
   document.getElementById('bookDate').value = today.toISOString().split('T')[0];
   refreshRates();
 
-  // Auto-poll the sheet every 30 seconds so price edits propagate without manual refresh
-  setInterval(() => { if (!document.hidden) refreshRates(); }, 30000);
+  // Auto-poll the sheet every 10 seconds so price edits propagate near real-time
+  setInterval(() => { if (!document.hidden) refreshRates(); }, 10000);
 </script>
 </body>
 </html>
