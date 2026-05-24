@@ -147,7 +147,7 @@
       <div class="text-xs text-muted">ล้าง · ซ่อม · ติดตั้ง</div>
     </div>
     <div class="text-[10px] text-muted font-mono px-2 py-1 rounded border border-subtle">
-      build v5 · sheet-live
+      build v6 · sheet-live 10s
     </div>
   </div>
 </header>
@@ -853,8 +853,8 @@
   document.getElementById('bookDate').value = today.toISOString().split('T')[0];
   refreshRates();
 
-  // Auto-poll the sheet every 30 seconds so price edits propagate without manual refresh
-  setInterval(() => { if (!document.hidden) refreshRates(); }, 30000);
+  // Auto-poll the sheet every 10 seconds so price edits propagate near real-time
+  setInterval(() => { if (!document.hidden) refreshRates(); }, 10000);
 </script>
 </body>
 </html>
