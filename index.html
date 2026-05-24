@@ -157,7 +157,7 @@
 
         <!-- Service Items -->
         <section class="card p-6">
-          <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="10" rx="2"/>
@@ -169,6 +169,18 @@
             <button type="button" id="addItemBtn" class="btn-secondary inline-flex items-center gap-1.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
               เพิ่มรายการ
+            </button>
+          </div>
+
+          <!-- Sheet status -->
+          <div id="rateStatus" class="flex items-center justify-between gap-2 mb-4 px-3 py-2 rounded-lg border border-subtle bg-canvas text-xs">
+            <div class="flex items-center gap-2 min-w-0">
+              <span id="rateStatusDot" class="w-1.5 h-1.5 rounded-full bg-muted shrink-0"></span>
+              <span id="rateStatusText" class="text-muted truncate">กำลังโหลดราคาจาก Google Sheet…</span>
+            </div>
+            <button type="button" id="refreshRatesBtn" class="text-ink hover:bg-accent rounded-md px-2 py-1 inline-flex items-center gap-1 shrink-0" title="โหลดราคาใหม่">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+              รีเฟรช
             </button>
           </div>
 
@@ -428,22 +440,144 @@
 </footer>
 
 <script>
-  // ===== Rate table =====
-  const SERVICES = {
-    clean:   { label: 'ล้างแอร์',    rates: { '9000': 500,  '12000': 600,  '18000': 800,  '24000': 1000, '36000': 1400 } },
+  // ===== Rate table (loaded from Google Sheet) =====
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS7XMolQsqy_bUGSiGjzrs_e_8LFp4XqvfItYwJu6ADY9IMmExLTfXJOPp2ZW8h1TMR7rJ8GupNFIGG/pub?output=csv';
+
+  const SERVICE_LABEL_MAP = {
+    wash: 'ล้างแอร์', clean: 'ล้างแอร์', cleaning: 'ล้างแอร์', 'ล้าง': 'ล้างแอร์', 'ล้างแอร์': 'ล้างแอร์',
+    repair: 'ซ่อมแอร์', fix: 'ซ่อมแอร์', 'ซ่อม': 'ซ่อมแอร์', 'ซ่อมแอร์': 'ซ่อมแอร์',
+    install: 'ติดตั้งแอร์', installation: 'ติดตั้งแอร์', 'ติดตั้ง': 'ติดตั้งแอร์', 'ติดตั้งแอร์': 'ติดตั้งแอร์',
+  };
+
+  // Fallback (used only when sheet fetch fails)
+  const FALLBACK_SERVICES = {
+    wash:    { label: 'ล้างแอร์',    rates: { '9000': 600,  '12000': 700,  '18000': 900,  '24000': 1100, '36000': 1400 } },
     repair:  { label: 'ซ่อมแอร์',    rates: { '9000': 800,  '12000': 1000, '18000': 1300, '24000': 1600, '36000': 2200 } },
     install: { label: 'ติดตั้งแอร์', rates: { '9000': 2500, '12000': 3000, '18000': 3800, '24000': 4800, '36000': 6500 } },
   };
-
-  const SIZES = [
-    { v: '9000',  label: '9,000 BTU' },
-    { v: '12000', label: '12,000 BTU' },
-    { v: '18000', label: '18,000 BTU' },
-    { v: '24000', label: '24,000 BTU' },
-    { v: '36000', label: '36,000+ BTU' },
+  const FALLBACK_SIZES = [
+    { v: '9000', label: '9,000 BTU' }, { v: '12000', label: '12,000 BTU' },
+    { v: '18000', label: '18,000 BTU' }, { v: '24000', label: '24,000 BTU' },
+    { v: '36000', label: '36,000 BTU' },
   ];
 
+  // Populated from sheet on load
+  let SERVICES = {};
+  let SIZES = [];
+
   const TRAVEL = { '0': 0, '10': 100, '20': 250, '30': 400, '50': 700, '100': 1200 };
+
+  // Parse CSV with quoted-string support
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') { quoted = false; }
+        else { cell += c; }
+      } else {
+        if (c === '"') quoted = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (c === '\r') { /* skip */ }
+        else cell += c;
+      }
+    }
+    if (cell.length || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => String(c).trim().length));
+  }
+
+  function buildRatesFromRows(rows) {
+    if (!rows || rows.length < 2) throw new Error('ชีตว่างหรือไม่มีข้อมูล');
+    const header = rows[0].map(s => String(s).trim());
+    const sizes = [];
+    for (let i = 1; i < header.length; i++) {
+      const raw = header[i];
+      const n = parseInt(String(raw).replace(/[^\d]/g, ''));
+      if (!isNaN(n) && n > 0) {
+        sizes.push({ v: String(n), label: n.toLocaleString('th-TH') + ' BTU' });
+      }
+    }
+    if (sizes.length === 0) throw new Error('ไม่พบคอลัมน์ขนาด BTU ในแถวหัว');
+
+    const services = {};
+    for (let r = 1; r < rows.length; r++) {
+      const cells = rows[r];
+      const rawKey = String(cells[0] || '').trim();
+      if (!rawKey) continue;
+      const key = rawKey.toLowerCase();
+      const label = SERVICE_LABEL_MAP[key] || SERVICE_LABEL_MAP[rawKey] || rawKey;
+      const rates = {};
+      sizes.forEach((s, idx) => {
+        const raw = String(cells[idx + 1] || '').replace(/[^\d.]/g, '');
+        const p = parseFloat(raw);
+        if (!isNaN(p)) rates[s.v] = p;
+      });
+      if (Object.keys(rates).length) services[key] = { label, rates };
+    }
+    if (Object.keys(services).length === 0) throw new Error('ไม่พบรายการบริการในชีต');
+    return { services, sizes };
+  }
+
+  async function loadRatesFromSheet() {
+    const url = SHEET_CSV_URL + '&cb=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    return buildRatesFromRows(parseCSV(text));
+  }
+
+  function setRateStatus(state, message) {
+    const dot = document.getElementById('rateStatusDot');
+    const txt = document.getElementById('rateStatusText');
+    const colors = {
+      loading: 'bg-muted', ok: 'bg-emerald-500', error: 'bg-amber-500',
+    };
+    dot.className = 'w-1.5 h-1.5 rounded-full shrink-0 ' + (colors[state] || 'bg-muted');
+    txt.textContent = message;
+    txt.className = 'truncate ' + (state === 'error' ? 'text-amber-700' : 'text-muted');
+  }
+
+  async function refreshRates() {
+    setRateStatus('loading', 'กำลังโหลดราคาจาก Google Sheet…');
+    document.getElementById('refreshRatesBtn').disabled = true;
+    try {
+      const { services, sizes } = await loadRatesFromSheet();
+      SERVICES = services;
+      SIZES = sizes;
+      // Repair existing items: fix invalid service/size after rate change
+      const firstSvc = Object.keys(SERVICES)[0];
+      const firstSize = SIZES[0]?.v;
+      items.forEach(it => {
+        if (!SERVICES[it.service]) it.service = firstSvc;
+        if (!SIZES.find(s => s.v === it.size)) it.size = firstSize;
+      });
+      if (items.length === 0) createItem();
+      renderItems();
+      updateSummary();
+      const now = new Date().toLocaleTimeString('th-TH');
+      setRateStatus('ok', 'ราคาจาก Google Sheet · อัปเดต ' + now);
+    } catch (e) {
+      console.error(e);
+      // Fall back to defaults so the app stays usable
+      if (Object.keys(SERVICES).length === 0) {
+        SERVICES = FALLBACK_SERVICES;
+        SIZES = FALLBACK_SIZES;
+        items.forEach(it => {
+          if (!SERVICES[it.service]) it.service = Object.keys(SERVICES)[0];
+          if (!SIZES.find(s => s.v === it.size)) it.size = SIZES[0].v;
+        });
+        if (items.length === 0) createItem();
+        renderItems();
+        updateSummary();
+      }
+      setRateStatus('error', 'โหลดราคาจากชีตไม่สำเร็จ (' + e.message + ') — ใช้ราคาสำรอง · กดรีเฟรชเพื่อลองใหม่');
+    } finally {
+      document.getElementById('refreshRatesBtn').disabled = false;
+    }
+  }
 
   const fmt = (n) => '฿' + Number(n).toLocaleString('th-TH');
 
@@ -452,7 +586,14 @@
   let nextId = 1;
 
   function createItem() {
-    items.push({ id: nextId++, service: 'clean', size: '9000', qty: 1 });
+    const svc = Object.keys(SERVICES)[0];
+    const size = SIZES[0]?.v;
+    if (!svc || !size) {
+      // Sheet not loaded yet — placeholder item, will be repaired after load
+      items.push({ id: nextId++, service: '', size: '', qty: 1 });
+    } else {
+      items.push({ id: nextId++, service: svc, size, qty: 1 });
+    }
     renderItems();
     updateSummary();
   }
@@ -672,11 +813,12 @@
     resetForm();
   });
   document.getElementById('printBtn').addEventListener('click', () => window.print());
+  document.getElementById('refreshRatesBtn').addEventListener('click', refreshRates);
 
   // init
-  createItem();
   const today = new Date();
   document.getElementById('bookDate').value = today.toISOString().split('T')[0];
+  refreshRates();
 </script>
 </body>
 </html>
